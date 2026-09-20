@@ -11,6 +11,7 @@ spec:
         any:
           - resources:
               kinds: [Pod]
+              namespaces: [demo, observability]
       validate:
         message: CPU and memory requests and limits are required.
         pattern:

@@ -11,6 +11,7 @@ spec:
         any:
           - resources:
               kinds: [Pod]
+              namespaces: [demo, observability]
       validate:
         message: Containers must run as non-root with privilege escalation disabled.
         pattern:

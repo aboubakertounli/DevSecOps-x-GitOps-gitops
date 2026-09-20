@@ -1,0 +1,30 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: observability
+resources:
+  - namespace.yaml
+  - rbac.yaml
+  - prometheus.yaml
+  - grafana.yaml
+configMapGenerator:
+  - name: prometheus-config
+    files:
+      - prometheus.yml=configs/prometheus.yml
+      - rules.yml=configs/rules.yml
+    options:
+      disableNameSuffixHash: true
+  - name: grafana-datasources
+    files:
+      - datasources.yaml=configs/grafana-datasources.yml
+    options:
+      disableNameSuffixHash: true
+  - name: grafana-dashboard-provider
+    files:
+      - dashboards.yaml=configs/grafana-dashboards.yml
+    options:
+      disableNameSuffixHash: true
+  - name: grafana-dashboard-demo
+    files:
+      - demo-api.json=configs/demo-api.json
+    options:
+      disableNameSuffixHash: true

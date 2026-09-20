@@ -11,6 +11,7 @@ spec:
         any:
           - resources:
               kinds: [Pod]
+              namespaces: [demo, observability]
       validate:
         message: Images must not use the latest tag.
         pattern:
