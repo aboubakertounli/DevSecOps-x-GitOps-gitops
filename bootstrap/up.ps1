@@ -7,6 +7,17 @@ $KyvernoManifest = "https://github.com/kyverno/kyverno/releases/download/v1.13.4
 $ArgoManifest = "https://raw.githubusercontent.com/argoproj/argo-cd/v2.13.3/manifests/install.yaml"
 $KindBin = Join-Path $env:LOCALAPPDATA "kind\kind.exe"
 
+function Invoke-Checked {
+  param(
+    [Parameter(Mandatory = $true, Position = 0)] [string] $File,
+    [Parameter(ValueFromRemainingArguments = $true)] $CmdArgs
+  )
+  & $File @CmdArgs
+  if ($LASTEXITCODE -ne 0) {
+    throw "$File failed with exit $LASTEXITCODE"
+  }
+}
+
 function Assert-Docker {
   $deadline = (Get-Date).AddMinutes(5)
   do {
@@ -33,26 +44,29 @@ function Install-Kind {
 Assert-Docker
 $kind = Install-Kind
 
-$clusters = & $kind get clusters
+$clusters = @(& $kind get clusters 2>$null)
 if ($clusters -notcontains "gitops-lab") {
   Write-Host "Creating kind cluster gitops-lab"
-  & $kind create cluster --config (Join-Path $PSScriptRoot "kind.yaml")
+  Invoke-Checked $kind create cluster --config (Join-Path $PSScriptRoot "kind.yaml") --wait 180s
 } else {
   Write-Host "kind cluster gitops-lab already exists"
-  & $kind export kubeconfig --name gitops-lab
+  Invoke-Checked $kind export kubeconfig --name gitops-lab
 }
 
 Write-Host "Installing Kyverno"
-kubectl apply -f $KyvernoManifest
-kubectl wait --namespace kyverno --for=condition=Available --timeout=180s deployment --all
+Invoke-Checked kubectl apply --server-side --force-conflicts -f $KyvernoManifest
+Invoke-Checked kubectl wait --namespace kyverno --for=condition=Available --timeout=180s deployment --all
 
 Write-Host "Installing Argo CD"
 kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
-kubectl apply -n argocd -f $ArgoManifest
-kubectl wait --for=condition=Available deployment/argocd-server -n argocd --timeout=300s
+if ($LASTEXITCODE -ne 0) { throw "failed to create argocd namespace" }
+Invoke-Checked kubectl apply -n argocd -f $ArgoManifest
+Invoke-Checked kubectl wait --for=condition=Available deployment/argocd-server -n argocd --timeout=300s
+Invoke-Checked kubectl wait --for=condition=Available deployment/argocd-repo-server -n argocd --timeout=180s
+Start-Sleep -Seconds 10
 
 Write-Host "Registering Argo CD Applications (demo, observability, policies)"
-kubectl apply -f (Join-Path $Root "argocd")
+Invoke-Checked kubectl apply -f (Join-Path $Root "argocd")
 
 Write-Host @"
 
